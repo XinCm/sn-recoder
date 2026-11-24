@@ -23,8 +23,8 @@ struct HoverPreviewOverlay: View {
     }
 }
 
-/// Measures the card, then decides whether it sits to the right or the left of
-/// the hovered day box.
+/// Places the card beside the hovered day box. The placement math lives in
+/// `HoverPreviewLayout` and guarantees the card never covers the anchor box.
 private struct HoverPreviewPlacement: View {
     let dateKey: String
     let anchorFrame: CGRect
@@ -32,44 +32,21 @@ private struct HoverPreviewPlacement: View {
 
     @EnvironmentObject private var store: MemoStore
 
-    private let margin: CGFloat = 14
-    private let gap: CGFloat = 16
-
     var body: some View {
         let items = store.items(for: dateKey)
         let size = CGSize(
-            width: HoverPreviewMetrics.width,
-            height: HoverPreviewMetrics.cardHeight(for: items)
+            width: HoverPreviewLayout.width,
+            height: HoverPreviewLayout.cardHeight(for: items)
+        )
+        let origin = HoverPreviewLayout.cardOrigin(
+            anchor: anchorFrame,
+            panelSize: panelSize,
+            cardSize: size
         )
 
         HoverPreviewCard(dateKey: dateKey)
-            .frame(width: HoverPreviewMetrics.width)
-            .position(position(for: size))
-    }
-
-    private func position(for size: CGSize) -> CGPoint {
-        let width = size.width
-        let height = size.height
-
-        let rightSpace = panelSize.width - anchorFrame.maxX - margin
-        let leftSpace = anchorFrame.minX - margin
-        let required = width + gap
-
-        var x: CGFloat
-        if rightSpace >= required {
-            x = anchorFrame.maxX + gap + width / 2
-        } else if leftSpace >= required {
-            x = anchorFrame.minX - gap - width / 2
-        } else {
-            x = rightSpace >= leftSpace
-                ? anchorFrame.maxX + gap + width / 2
-                : anchorFrame.minX - gap - width / 2
-        }
-        x = min(max(x, margin + width / 2), panelSize.width - margin - width / 2)
-
-        var y = anchorFrame.midY
-        y = min(max(y, margin + height / 2), panelSize.height - margin - height / 2)
-        return CGPoint(x: x, y: y)
+            .frame(width: size.width)
+            .position(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
     }
 }
 
@@ -87,10 +64,10 @@ private struct HoverPreviewCard: View {
         let completed = items.reduce(into: 0) { count, item in
             if item.isCompleted { count += 1 }
         }
-        let estimatedHeight = HoverPreviewMetrics.estimatedItemsHeight(for: items)
+        let estimatedHeight = HoverPreviewLayout.estimatedItemsHeight(for: items)
         let effectiveHeight = measuredItemsHeight > 0 ? measuredItemsHeight : estimatedHeight
-        let itemsViewport = min(max(effectiveHeight, 1), HoverPreviewMetrics.maxItemsHeight)
-        let scrolls = effectiveHeight > HoverPreviewMetrics.maxItemsHeight
+        let itemsViewport = min(max(effectiveHeight, 1), HoverPreviewLayout.maxItemsHeight)
+        let scrolls = effectiveHeight > HoverPreviewLayout.maxItemsHeight
 
         VStack(alignment: .leading, spacing: 0) {
             header(items: items, completed: completed)
@@ -122,7 +99,7 @@ private struct HoverPreviewCard: View {
                 .padding(.top, 10)
         }
         .padding(16)
-        .frame(width: HoverPreviewMetrics.width, alignment: .leading)
+        .frame(width: HoverPreviewLayout.width, alignment: .leading)
         .background {
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -213,37 +190,6 @@ private struct HoverPreviewCard: View {
         }
     }
 
-}
-
-/// Geometry shared by the card, its scroll viewport and the positioning logic.
-enum HoverPreviewMetrics {
-    static let width: CGFloat = 380
-    static let maxItemsHeight: CGFloat = 360
-    static let chromeHeight: CGFloat = 116
-
-    /// Rough content height used for positioning before the card has laid out.
-    static func estimatedItemsHeight(for items: [MemoItem]) -> CGFloat {
-        guard !items.isEmpty else { return 30 }
-        let usableWidth: CGFloat = width - 32 - 14 - 8
-        let charsPerLine = max(12, usableWidth / 12.5)
-
-        var lineCount: CGFloat = 0
-        for item in items {
-            let visualLength = item.text.reduce(CGFloat(0)) { length, character in
-                length + (character.isASCII ? 0.55 : 1)
-            }
-            lineCount += max(1, ceil(visualLength / charsPerLine))
-        }
-        return lineCount * 18 + CGFloat(items.count) * 9 + 20
-    }
-
-    static func cardHeight(for items: [MemoItem]) -> CGFloat {
-        let itemsHeight = min(
-            max(estimatedItemsHeight(for: items), 1),
-            maxItemsHeight
-        )
-        return chromeHeight + itemsHeight
-    }
 }
 
 private struct HoverPreviewItemRow: View {

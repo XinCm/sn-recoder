@@ -159,6 +159,47 @@ struct MemoBarTests {
         hoverPanel.dismissHoverPreview()
         expect(hoverPanel.hoverPreview == nil, "explicit dismissal clears the card")
 
+        print("Hover preview placement")
+        let panelSize = CGSize(width: PanelMetrics.width, height: PanelMetrics.height)
+        let horizontalPadding: CGFloat = 18
+        let columnWidth = (panelSize.width - horizontalPadding * 2 - PanelMetrics.gridSpacing * 6) / 7
+        let gridTop: CGFloat = 16 + 30 + 12 + 18 + 8
+        let cardHeights: [CGFloat] = [150, 300, HoverPreviewLayout.chromeHeight + HoverPreviewLayout.maxItemsHeight]
+
+        for rows in [4, 5, 6] {
+            let rowHeight = (PanelMetrics.gridAreaHeight - CGFloat(rows - 1) * PanelMetrics.gridSpacing) / CGFloat(rows)
+            var problems: [String] = []
+
+            for row in 0..<rows {
+                for column in 0..<7 {
+                    let anchor = CGRect(
+                        x: horizontalPadding + CGFloat(column) * (columnWidth + PanelMetrics.gridSpacing),
+                        y: gridTop + CGFloat(row) * (rowHeight + PanelMetrics.gridSpacing),
+                        width: columnWidth,
+                        height: rowHeight
+                    )
+                    for cardHeight in cardHeights {
+                        let cardSize = CGSize(width: HoverPreviewLayout.width, height: cardHeight)
+                        let frame = HoverPreviewLayout.cardFrame(
+                            anchor: anchor,
+                            panelSize: panelSize,
+                            cardSize: cardSize
+                        )
+                        if frame.intersects(anchor) {
+                            problems.append("overlaps row \(row) column \(column) height \(cardHeight)")
+                        }
+                        let safeBounds = CGRect(origin: .zero, size: panelSize)
+                            .insetBy(dx: HoverPreviewLayout.margin - 0.5, dy: HoverPreviewLayout.margin - 0.5)
+                        if !safeBounds.contains(frame) {
+                            problems.append("outside panel row \(row) column \(column)")
+                        }
+                    }
+                }
+            }
+
+            expect(problems.isEmpty, "hover card stays clear of every day box in \(rows)-row months")
+        }
+
         print("")
         if failures == 0 {
             print("All \(checks) checks passed.")

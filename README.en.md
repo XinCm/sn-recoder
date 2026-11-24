@@ -107,7 +107,8 @@ The settings toggle uses a per-user LaunchAgent:
 │   │   ├── DateKey.swift             # date keys, Monday-first calendar, date copy
 │   │   ├── MemoItem.swift            # memo and database models
 │   │   ├── MonthGrid.swift           # month grid (leading blanks, rows, days)
-│   │   └── PanelMetrics.swift        # fixed panel geometry
+│   │   ├── PanelMetrics.swift        # fixed panel geometry
+│   │   └── HoverPreviewLayout.swift  # hover card size, placement, no-overlap math
 │   ├── Services
 │   │   ├── MemoFileStore.swift       # atomic JSON I/O, backups, corruption recovery
 │   │   └── LaunchAtLogin.swift       # LaunchAgent login item
@@ -128,7 +129,7 @@ The settings toggle uses a per-user LaunchAgent:
 │       ├── Info.plist
 │       ├── AppIcon.icns
 │       └── AppIcon-1024.png
-├── Tests/MemoBarTests.swift          # 55 model, persistence and hover-state checks
+├── Tests/MemoBarTests.swift          # 58 model, persistence, hover-state and layout checks
 ├── Tools/PreviewRender/PreviewRenderer.swift  # offscreen NSWindow snapshot tool
 ├── scripts                           # build / test / preview / icon
 ├── docs/screenshots                  # README images
@@ -144,13 +145,13 @@ The settings toggle uses a per-user LaunchAgent:
 - One `MenuBarExtra` panel hosts the month, day detail and settings — no stacked popovers.
 - Closed panels do no polling; date refresh relies on system notifications plus a single midnight timer.
 - Double-clicking empty space is a background-layer gesture; buttons, date numbers and memo text keep their own click/double-click behavior.
-- The hover card uses a 0.4 s intent delay, flips to the side with more room, and is clamped inside the panel so it never covers the hovered box. The day box and the card report hover independently, and the card hides only when both are left. The card grows to fit its content and scrolls internally beyond 360 pt.
+- The hover card uses a 0.4 s intent delay, flips to the side with more room, and keeps at least 24 pt from the hovered box; the placement math guarantees no intersection. It lives in `HoverPreviewLayout` and is tested for every row/column in 4/5/6-row months. Day-box frames refresh after every layout, so a month switch cannot leave a stale anchor. The day box and the card report hover independently, and the card hides only when both are left. The card grows to fit its content and scrolls internally beyond 360 pt.
 - Completed text keeps readable contrast in both appearances; unfinished memos on past dates keep normal text color.
 - The UI uses system fonts and SF Symbols, with no image assets or UI frameworks.
 
 ## Verification
 
-- `make test`: **55 checks pass**, covering leap February, 4/5/6-row months, year boundaries, the Mon–Sun header, CRUD, completion, ordering, restart recovery, atomic saves, backup recovery, corrupt-file preservation, and both hover event orderings.
+- `make test`: **58 checks pass**, covering leap February, 4/5/6-row months, year boundaries, the Mon–Sun header, CRUD, completion, ordering, restart recovery, atomic saves, backup recovery, corrupt-file preservation, both hover event orderings, and no-overlap/bounds placement for every day position across 4/5/6-row months.
 - Offscreen renders check light/dark month views, 4- and 6-row months, inline add, editing, empty states, undo, settings, and the hover card with a long scrollable list.
 - Real window events confirm that double-clicking empty space opens the inline editor.
 - A real build shows a visible menu bar `NSStatusBarWindow` (32 × 33 pt, occlusion state includes visible) and runs as a `UIElement` with no Dock icon; a real hover shows a truncated title in full in the card. Resident memory is about 75 MB (mostly the SwiftUI/AppKit runtime).
@@ -159,7 +160,7 @@ The settings toggle uses a per-user LaunchAgent:
 
 - Local-only data for now: no notifications, repeating memos, search, import/export, iCloud sync or global hotkey.
 - The window is fixed at 920 × 720; the calendar does not yet scroll vertically on very small screens or with very large system fonts.
-- The hover preview appears only on days with memos; the card is capped at about 380 × 480 pt, so extremely long content must be scrolled or opened in the day detail.
+- The hover preview appears only on days with memos; the card is capped at about 360 × 480 pt, so extremely long content must be scrolled or opened in the day detail.
 - `Esc` cancels inline input and editing; click the icon or outside the panel to close it.
 - The build script builds for the current machine architecture (arm64 on Apple Silicon). On an Intel Mac, run the same `make build`.
 - There is no `.xcodeproj`; the app is packaged with `swiftc` and `scripts/build.sh` to keep the bundle small. Migrating to an Xcode project later is straightforward.

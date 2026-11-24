@@ -61,12 +61,17 @@ struct DayBoxView: View {
         )
         .background(
             GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
                 Color.clear
-                    .onAppear {
-                        boxFrame = proxy.frame(in: .global)
-                    }
+                    .onAppear { boxFrame = frame }
+                    .preference(key: DayBoxFramePreferenceKey.self, value: frame)
             }
         )
+        .onPreferenceChange(DayBoxFramePreferenceKey.self) { frame in
+            if frame != boxFrame {
+                boxFrame = frame
+            }
+        }
         .contentShape(RoundedRectangle(cornerRadius: Theme.boxCornerRadius, style: .continuous))
         .onHover { inside in
             hovering = inside
@@ -194,5 +199,13 @@ struct DayBoxView: View {
                 radius: isToday ? 5 : 2,
                 y: 1
             )
+    }
+}
+
+private struct DayBoxFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
     }
 }
